@@ -1,0 +1,31 @@
+{
+  "A": [
+    {
+      "name": "dannyzolp.com",
+      "ip": "127.0.0.1",
+      "ttl": 69
+    }
+  ],
+  "CNAME": [
+    {
+      "name": "test.dannyzolp.com",
+      "target": "google.com",
+      "ttl": 67
+    }
+  ],
+  "MX": [
+    {
+      "name": "dannyzolp.com",
+      "server": "127.0.0.1",
+      "ttl": 1000,
+      "priority": 1
+    }
+  ],
+  "TXT": [
+    {
+      "name": "dannyzolp.com",
+      "content": "blah blah blah",
+      "ttl": 69420
+    }
+  ]
+}
