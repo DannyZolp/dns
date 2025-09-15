@@ -54,6 +54,12 @@ func udp(port int, ip net.IP, records map[string][]byte, wg *sync.WaitGroup) {
 
 	for {
 		_, remoteAddr, err := ser.ReadFromUDP(packet)
+
+		if err != nil {
+			fmt.Printf("Some error  %v", err)
+			continue
+		}
+
 		endOfDomain := 12
 
 		for {
@@ -74,9 +80,5 @@ func udp(port int, ip net.IP, records map[string][]byte, wg *sync.WaitGroup) {
 			ser.WriteToUDP(response, remoteAddr)
 		}
 
-		if err != nil {
-			fmt.Printf("Some error  %v", err)
-			continue
-		}
 	}
 }

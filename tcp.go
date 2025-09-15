@@ -18,10 +18,17 @@ func handleConnection(conn net.Conn, records map[string][]byte, headerFound []by
 	if err != nil {
 		fmt.Printf("Error reading length from TCP request  %v", err)
 		conn.Close()
+		return
 	}
 
 	request := make([]byte, binary.BigEndian.Uint16(length))
 	_, err = reader.Read(request)
+
+	if err != nil {
+		fmt.Printf("Error reading content from TCP request  %v", err)
+		conn.Close()
+		return
+	}
 
 	endOfDomain := 12
 
@@ -31,11 +38,6 @@ func handleConnection(conn net.Conn, records map[string][]byte, headerFound []by
 			break
 		}
 		endOfDomain++
-	}
-
-	if err != nil {
-		fmt.Printf("Error reading content from TCP request  %v", err)
-		conn.Close()
 	}
 
 	record := records[string(request[12:endOfDomain+2])]
