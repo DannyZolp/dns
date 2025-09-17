@@ -12,8 +12,14 @@ import (
 func handleConnection(conn net.Conn, records map[string][]byte, headerFound []byte, headerNotFound []byte) {
 	reader := bufio.NewReader(conn)
 
-	length := make([]byte, 2)
-	_, err := reader.Read(length)
+	lengthBytes := make([]byte, 2)
+	_, err := reader.Read(lengthBytes)
+	length := binary.BigEndian.Uint16(lengthBytes)
+
+	if length < 20 {
+		conn.Close()
+		return
+	}
 
 	if err != nil {
 		fmt.Printf("Error reading length from TCP request  %v", err)
@@ -21,7 +27,7 @@ func handleConnection(conn net.Conn, records map[string][]byte, headerFound []by
 		return
 	}
 
-	request := make([]byte, binary.BigEndian.Uint16(length))
+	request := make([]byte, length)
 	_, err = reader.Read(request)
 
 	if err != nil {
@@ -45,15 +51,15 @@ func handleConnection(conn net.Conn, records map[string][]byte, headerFound []by
 	if record != nil {
 		response := slices.Concat(request[0:2], headerFound, request[12:endOfDomain+4], record)
 
-		binary.BigEndian.PutUint16(length, uint16(len(response)))
+		binary.BigEndian.PutUint16(lengthBytes, uint16(len(response)))
 
-		conn.Write(slices.Concat(length, response))
+		conn.Write(slices.Concat(lengthBytes, response))
 	} else {
 		response := slices.Concat(request[0:2], headerNotFound, request[12:endOfDomain+4])
 
-		binary.BigEndian.PutUint16(length, uint16(len(response)))
+		binary.BigEndian.PutUint16(lengthBytes, uint16(len(response)))
 
-		conn.Write(slices.Concat(length, response))
+		conn.Write(slices.Concat(lengthBytes, response))
 	}
 
 	conn.Close()
