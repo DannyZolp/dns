@@ -2,12 +2,10 @@ package helpers
 
 import (
 	"encoding/binary"
-	"fmt"
 	"slices"
 )
 
-func createCNAMERecord(recordsPointer *map[string][]byte, fqdn string, domain string, ttl uint32) {
-	records := *recordsPointer
+func CreateCNAMERecord(records map[string][]byte, fqdn string, domain string, ttl uint32) {
 
 	name := convertNameToBytes(fqdn)
 
@@ -31,8 +29,6 @@ func createCNAMERecord(recordsPointer *map[string][]byte, fqdn string, domain st
 	// calculate rdata
 
 	rdata := convertNameToBytes(domain)
-
-	fmt.Println(uint16(len(rdata)))
 
 	// encode the length of the ip address
 	rdataLength := make([]byte, 2)

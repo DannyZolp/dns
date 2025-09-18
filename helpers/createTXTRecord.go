@@ -5,8 +5,7 @@ import (
 	"slices"
 )
 
-func createTXTRecord(recordsPointer *map[string][]byte, fqdn string, data string, ttl uint32) {
-	records := *recordsPointer
+func CreateTXTRecord(records map[string][]byte, fqdn string, data string, ttl uint32) {
 
 	name := convertNameToBytes(fqdn)
 

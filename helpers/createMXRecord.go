@@ -5,8 +5,7 @@ import (
 	"slices"
 )
 
-func createMXRecord(recordsPointer *map[string][]byte, fqdn string, domain string, priority uint16, ttl uint32) {
-	records := *recordsPointer
+func CreateMXRecord(records map[string][]byte, fqdn string, domain string, priority uint16, ttl uint32) {
 
 	name := convertNameToBytes(fqdn)
 

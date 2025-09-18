@@ -6,8 +6,7 @@ import (
 	"slices"
 )
 
-func createARecord(recordsPointer *map[string][]byte, fqdn string, ip string, ttl uint32) {
-	records := *recordsPointer
+func CreateARecord(records map[string][]byte, fqdn string, ip string, ttl uint32) {
 
 	ipAddr := net.ParseIP(ip)
 	name := convertNameToBytes(fqdn)
