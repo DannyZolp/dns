@@ -60,6 +60,15 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 	r := chi.NewRouter()
 
+	r.Get("/a", func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		var records []A
+
+		db.Find(&records)
+
+		enc.Encode(records)
+	})
+
 	r.Post("/a", func(w http.ResponseWriter, r *http.Request) {
 		record := A{}
 
@@ -99,6 +108,15 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		w.Write([]byte("OK"))
 	})
 
+	r.Get("/cname", func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		var records []CNAME
+
+		db.Find(&records)
+
+		enc.Encode(records)
+	})
+
 	r.Post("/cname", func(w http.ResponseWriter, r *http.Request) {
 		record := CNAME{}
 
@@ -126,6 +144,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		w.Write([]byte("OK"))
 	})
+
 	r.Delete("/cname", func(w http.ResponseWriter, r *http.Request) {
 		buf := new(strings.Builder)
 		io.Copy(buf, r.Body)
@@ -134,6 +153,15 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		generateHashTable(hashMap, db, ctx)
 
 		w.Write([]byte("OK"))
+	})
+
+	r.Get("/mx", func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		var records []MX
+
+		db.Find(&records)
+
+		enc.Encode(records)
 	})
 
 	r.Post("/mx", func(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +191,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		w.Write([]byte("OK"))
 	})
+
 	r.Delete("/mx", func(w http.ResponseWriter, r *http.Request) {
 		buf := new(strings.Builder)
 		io.Copy(buf, r.Body)
@@ -171,6 +200,15 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		generateHashTable(hashMap, db, ctx)
 
 		w.Write([]byte("OK"))
+	})
+
+	r.Get("/txt", func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		var records []TXT
+
+		db.Find(&records)
+
+		enc.Encode(records)
 	})
 
 	r.Post("/txt", func(w http.ResponseWriter, r *http.Request) {
@@ -201,6 +239,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		w.Write([]byte("OK"))
 	})
+
 	r.Delete("/txt", func(w http.ResponseWriter, r *http.Request) {
 		buf := new(strings.Builder)
 		io.Copy(buf, r.Body)
