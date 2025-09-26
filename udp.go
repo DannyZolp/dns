@@ -3,60 +3,40 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
 	"slices"
+	"strconv"
 	"sync"
 )
 
-func udp(port int, ip net.IP, records map[string][]byte, wg *sync.WaitGroup) {
+func udp(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	headerFound := []byte{
-		// QR/OPCODE Section
-		0x80, 0x00,
-		// QDCOUNT (assumes only one request was made)
-		0x00, 0x01,
-		// ANCOUNT (there is only one answer in this generated response)
-		0x00, 0x01,
-		// NSCOUNT, we're not doing anything with nameservers here
-		0x00, 0x00,
-		// ARCOUNT, no additional records either.
-		0x00, 0x00,
-	}
-
-	headerNotFound := []byte{
-		// QR/OPCODE Section
-		0x80, 0x00,
-		// QDCOUNT (assumes only one request was made)
-		0x00, 0x01,
-		// ANCOUNT (there is only one answer in this generated response)
-		0x00, 0x00,
-		// NSCOUNT, we're not doing anything with nameservers here
-		0x00, 0x00,
-		// ARCOUNT, no additional records either.
-		0x00, 0x00,
-	}
 
 	packet := make([]byte, 512) // in udp DNS, the max length of a packet is 512 bytes [RFC1035]
 
+	port, err := strconv.Atoi(os.Getenv("DNS_SERVER_PORT"))
+	if err != nil {
+		panic(err)
+	}
+
 	addr := net.UDPAddr{
 		Port: port,
-		IP:   ip,
+		IP:   net.ParseIP(os.Getenv("DNS_SERVER_IP")),
 	}
 
 	ser, err := net.ListenUDP("udp", &addr)
 
 	if err != nil {
-		fmt.Printf("Some error %v\n", err)
-		return
+		panic(err)
 	}
 
-	fmt.Printf("Listening for UDP on %s:%d\n", ip.String(), port)
+	fmt.Printf("Listening for UDP on %s:%d\n", addr.IP.String(), port)
 
 	for {
 		_, remoteAddr, err := ser.ReadFromUDP(packet)
 
 		if err != nil {
-			fmt.Printf("Some error  %v", err)
+			fmt.Printf("UDP Error: %v", err)
 			continue
 		}
 
@@ -71,14 +51,14 @@ func udp(port int, ip net.IP, records map[string][]byte, wg *sync.WaitGroup) {
 		}
 
 		record := records[string(packet[12:endOfDomain+2])]
+		var response []byte
 
 		if record != nil {
-			response := slices.Concat(packet[0:2], headerFound, packet[12:endOfDomain+4], record)
-			ser.WriteToUDP(response, remoteAddr)
+			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], record)
 		} else {
-			response := slices.Concat(packet[0:2], headerNotFound, packet[12:endOfDomain+4])
-			ser.WriteToUDP(response, remoteAddr)
+			response = slices.Concat(packet[0:2], HeaderNotFound, packet[12:endOfDomain+4])
 		}
 
+		ser.WriteToUDP(response, remoteAddr)
 	}
 }

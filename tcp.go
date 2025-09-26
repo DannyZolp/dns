@@ -4,17 +4,20 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"slices"
+	"strconv"
 	"sync"
 )
 
-func handleConnection(conn net.Conn, records map[string][]byte, headerFound []byte, headerNotFound []byte) {
+func handleConnection(conn net.Conn, records map[string][]byte) {
 	reader := bufio.NewReader(conn)
 
-	lengthBytes := make([]byte, 2)
-	_, err := reader.Read(lengthBytes)
-	length := binary.BigEndian.Uint16(lengthBytes)
+	requestLength := make([]byte, 2)
+	_, err := reader.Read(requestLength)
+	length := binary.BigEndian.Uint16(requestLength)
 
 	if length < 20 {
 		conn.Close()
@@ -31,7 +34,9 @@ func handleConnection(conn net.Conn, records map[string][]byte, headerFound []by
 	_, err = reader.Read(request)
 
 	if err != nil {
-		fmt.Printf("Error reading content from TCP request  %v", err)
+		if err != io.EOF {
+			fmt.Printf("Error reading content from TCP request  %v", err)
+		}
 		conn.Close()
 		return
 	}
@@ -48,75 +53,52 @@ func handleConnection(conn net.Conn, records map[string][]byte, headerFound []by
 
 	record := records[string(request[12:endOfDomain+2])]
 
+	var response []byte
+	responseLength := make([]byte, 2)
+
 	if record != nil {
-		response := slices.Concat(request[0:2], headerFound, request[12:endOfDomain+4], record)
-
-		binary.BigEndian.PutUint16(lengthBytes, uint16(len(response)))
-
-		conn.Write(slices.Concat(lengthBytes, response))
+		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], record)
 	} else {
-		response := slices.Concat(request[0:2], headerNotFound, request[12:endOfDomain+4])
-
-		binary.BigEndian.PutUint16(lengthBytes, uint16(len(response)))
-
-		conn.Write(slices.Concat(lengthBytes, response))
+		response = slices.Concat(request[0:2], HeaderNotFound, request[12:endOfDomain+4])
 	}
+
+	binary.BigEndian.PutUint16(responseLength, uint16(len(response)))
+
+	conn.Write(slices.Concat(responseLength, response))
 
 	conn.Close()
 }
 
-func tcp(port int, ip net.IP, records map[string][]byte, wg *sync.WaitGroup) {
+func tcp(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	headerFound := []byte{
-		// QR/OPCODE Section
-		0x80, 0x00,
-		// QDCOUNT (assumes only one request was made)
-		0x00, 0x01,
-		// ANCOUNT (there is only one answer in this generated response)
-		0x00, 0x01,
-		// NSCOUNT, we're not doing anything with nameservers here
-		0x00, 0x00,
-		// ARCOUNT, no additional records either.
-		0x00, 0x00,
-	}
-
-	headerNotFound := []byte{
-		// QR/OPCODE Section
-		0x80, 0x00,
-		// QDCOUNT (assumes only one request was made)
-		0x00, 0x01,
-		// ANCOUNT (there is only one answer in this generated response)
-		0x00, 0x00,
-		// NSCOUNT, we're not doing anything with nameservers here
-		0x00, 0x00,
-		// ARCOUNT, no additional records either.
-		0x00, 0x00,
+	port, err := strconv.Atoi(os.Getenv("DNS_SERVER_PORT"))
+	if err != nil {
+		panic(err)
 	}
 
 	addr := net.TCPAddr{
 		Port: port,
-		IP:   ip,
+		IP:   net.ParseIP(os.Getenv("DNS_SERVER_IP")),
 	}
 
 	ser, err := net.ListenTCP("tcp", &addr)
 
 	if err != nil {
-		fmt.Printf("Some error %v\n", err)
-		return
+		panic(err)
 	}
 
-	fmt.Printf("Listening for TCP on %s:%d\n", ip.String(), port)
+	fmt.Printf("Listening for TCP on %s:%d\n", addr.IP.String(), port)
 
 	for {
 		conn, err := ser.Accept()
 
 		if err != nil {
-			fmt.Print("Error accepting TCP request")
+			fmt.Printf("TCP Error: %v", err)
 			conn.Close()
 			continue
 		}
 
-		go handleConnection(conn, records, headerFound, headerNotFound)
+		go handleConnection(conn, records)
 	}
 }

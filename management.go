@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 
@@ -44,8 +45,11 @@ func generateHashTable(hashMap map[string][]byte, db *gorm.DB, ctx context.Conte
 	}
 }
 
-func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGroup) {
+func management(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	mgmtIp := os.Getenv("MANAGEMENT_SERVER_IP")
+	mgmtPortStr := os.Getenv("MANAGEMENT_SERVER_PORT")
 
 	db, err := gorm.Open(sqlite.Open("dns.db"), &gorm.Config{})
 	ctx := context.Background()
@@ -56,7 +60,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 	db.AutoMigrate(&A{}, &CNAME{}, &MX{}, &TXT{})
 
-	generateHashTable(hashMap, db, ctx)
+	generateHashTable(records, db, ctx)
 
 	r := chi.NewRouter()
 
@@ -77,7 +81,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		db.Create(&record)
 
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -93,7 +97,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		db.Model(&dbRecord).Updates(record)
 
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -103,7 +107,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		io.Copy(buf, r.Body)
 
 		db.Delete(&A{}, "name = ?", buf.String())
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -124,7 +128,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		dec.Decode(&record)
 
 		db.Create(&record)
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -140,7 +144,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		db.Model(&dbRecord).Updates(record)
 
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -150,7 +154,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		io.Copy(buf, r.Body)
 
 		db.Delete(&CNAME{}, "name = ?", buf.String())
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -171,7 +175,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		dec.Decode(&record)
 
 		db.Create(&record)
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -187,7 +191,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 
 		db.Model(&dbRecord).Updates(record)
 
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -197,7 +201,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		io.Copy(buf, r.Body)
 
 		db.Delete(&MX{}, "name = ?", buf.String())
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -218,7 +222,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		dec.Decode(&record)
 
 		db.Create(&record)
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -235,7 +239,7 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		db.Model(&dbRecord).Updates(record)
 
 		db.First(&record, "name = ?", dbRecord.Name)
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
@@ -245,12 +249,12 @@ func management(port int, ip string, hashMap map[string][]byte, wg *sync.WaitGro
 		io.Copy(buf, r.Body)
 
 		db.Delete(&TXT{}, "name = ?", buf.String())
-		generateHashTable(hashMap, db, ctx)
+		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
 	})
 
-	fmt.Printf("Management server running on http://%s:%d", ip, port)
-	http.ListenAndServe(fmt.Sprintf("%s:%d", ip, port), r)
+	fmt.Printf("Management server running on http://%s:%s", mgmtIp, mgmtPortStr)
+	http.ListenAndServe(fmt.Sprintf("%s:%s", mgmtIp, mgmtPortStr), r)
 
 }
