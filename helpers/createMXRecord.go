@@ -7,7 +7,7 @@ import (
 
 func CreateMXRecord(records map[string][]byte, fqdn string, domain string, priority uint16, ttl uint32) {
 
-	name := convertNameToBytes(fqdn)
+	name := ConvertNameToBytes(fqdn)
 
 	qType := make([]byte, 2)
 	binary.BigEndian.PutUint16(qType, 15)
@@ -27,7 +27,7 @@ func CreateMXRecord(records map[string][]byte, fqdn string, domain string, prior
 	priorityBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(priorityBytes, priority)
 
-	rdata := slices.Concat(priorityBytes, convertNameToBytes(domain))
+	rdata := slices.Concat(priorityBytes, ConvertNameToBytes(domain))
 
 	// encode the length of the ip address
 	rdataLength := make([]byte, 2)

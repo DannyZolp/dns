@@ -9,7 +9,7 @@ import (
 func CreateARecord(records map[string][]byte, fqdn string, ip string, ttl uint32) {
 
 	ipAddr := net.ParseIP(ip)
-	name := convertNameToBytes(fqdn)
+	name := ConvertNameToBytes(fqdn)
 	qType := []byte{0x00, 0x01}
 
 	// key for map

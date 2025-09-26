@@ -7,7 +7,7 @@ import (
 
 func CreateCNAMERecord(records map[string][]byte, fqdn string, domain string, ttl uint32) {
 
-	name := convertNameToBytes(fqdn)
+	name := ConvertNameToBytes(fqdn)
 
 	aType := []byte{0x00, 0x01}
 
@@ -28,7 +28,7 @@ func CreateCNAMERecord(records map[string][]byte, fqdn string, domain string, tt
 
 	// calculate rdata
 
-	rdata := convertNameToBytes(domain)
+	rdata := ConvertNameToBytes(domain)
 
 	// encode the length of the ip address
 	rdataLength := make([]byte, 2)

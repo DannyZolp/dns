@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
 	"log"
 	"sync"
@@ -15,18 +16,19 @@ func main() {
 	}
 
 	records := make(map[string][]byte)
+	slds := list.New()
 
 	var wg sync.WaitGroup
 	wg.Add(3)
 
 	fmt.Println("Starting udp handler...")
-	go udp(records, &wg)
+	go udp(records, slds, &wg)
 
 	fmt.Println("Starting tcp handler...")
-	go tcp(records, &wg)
+	go tcp(records, slds, &wg)
 
 	fmt.Println("Starting management service...")
-	go management(records, &wg)
+	go management(records, slds, &wg)
 
 	wg.Wait()
 }

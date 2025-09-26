@@ -7,7 +7,7 @@ import (
 
 func CreateTXTRecord(records map[string][]byte, fqdn string, data string, ttl uint32) {
 
-	name := convertNameToBytes(fqdn)
+	name := ConvertNameToBytes(fqdn)
 
 	qType := make([]byte, 2)
 	binary.BigEndian.PutUint16(qType, 16)

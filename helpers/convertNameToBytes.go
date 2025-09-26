@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func convertNameToBytes(fqdn string) []byte {
+func ConvertNameToBytes(fqdn string) []byte {
 	bytes := make([]byte, len(fqdn)+2)
 
 	splitFQDN := strings.Split(fqdn, ".")
