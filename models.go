@@ -9,6 +9,13 @@ type A struct {
 	TTL  uint32 `json:"ttl"`
 }
 
+type AAAA struct {
+	gorm.Model
+	Name string `json:"name"`
+	IP   string `json:"ip"`
+	TTL  uint32 `json:"ttl"`
+}
+
 type CNAME struct {
 	gorm.Model
 	Name   string `json:"name"`

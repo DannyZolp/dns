@@ -20,6 +20,7 @@ import (
 
 func generateHashTable(hashMap map[string][]byte, db *gorm.DB, ctx context.Context) {
 	a, _ := gorm.G[A](db).Find(ctx)
+	aaaa, _ := gorm.G[AAAA](db).Find(ctx)
 	cname, _ := gorm.G[CNAME](db).Find(ctx)
 	mx, _ := gorm.G[MX](db).Find(ctx)
 	txt, _ := gorm.G[TXT](db).Find(ctx)
@@ -37,6 +38,10 @@ func generateHashTable(hashMap map[string][]byte, db *gorm.DB, ctx context.Conte
 	// create TXT records
 	for _, r := range txt {
 		helpers.CreateTXTRecord(hashMap, r.Name, r.Content, r.TTL)
+	}
+
+	for _, r := range aaaa {
+		helpers.CreateAAAARecord(hashMap, r.Name, r.IP, r.TTL)
 	}
 
 	// create all A records
@@ -58,7 +63,7 @@ func management(records map[string][]byte, wg *sync.WaitGroup) {
 		panic(err)
 	}
 
-	db.AutoMigrate(&A{}, &CNAME{}, &MX{}, &TXT{})
+	db.AutoMigrate(&A{}, &AAAA{}, &CNAME{}, &MX{}, &TXT{})
 
 	generateHashTable(records, db, ctx)
 
@@ -107,6 +112,54 @@ func management(records map[string][]byte, wg *sync.WaitGroup) {
 		io.Copy(buf, r.Body)
 
 		db.Delete(&A{}, "name = ?", buf.String())
+		generateHashTable(records, db, ctx)
+
+		w.Write([]byte("OK"))
+	})
+
+	r.Get("/aaaa", func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		var records []AAAA
+
+		db.Find(&records)
+
+		enc.Encode(records)
+	})
+
+	r.Post("/aaaa", func(w http.ResponseWriter, r *http.Request) {
+		record := AAAA{}
+
+		dec := json.NewDecoder(r.Body)
+		dec.Decode(&record)
+
+		db.Create(&record)
+
+		generateHashTable(records, db, ctx)
+
+		w.Write([]byte("OK"))
+	})
+
+	r.Patch("/aaaa", func(w http.ResponseWriter, r *http.Request) {
+		record := AAAA{}
+
+		dec := json.NewDecoder(r.Body)
+		dec.Decode(&record)
+
+		dbRecord := AAAA{}
+		db.First(&dbRecord, "name = ?", record.Name)
+
+		db.Model(&dbRecord).Updates(record)
+
+		generateHashTable(records, db, ctx)
+
+		w.Write([]byte("OK"))
+	})
+
+	r.Delete("/aaaa", func(w http.ResponseWriter, r *http.Request) {
+		buf := new(strings.Builder)
+		io.Copy(buf, r.Body)
+
+		db.Delete(&AAAA{}, "name = ?", buf.String())
 		generateHashTable(records, db, ctx)
 
 		w.Write([]byte("OK"))
