@@ -1,8 +1,7 @@
-package main
+package dns
 
 import (
 	"bufio"
-	"container/list"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -13,10 +12,10 @@ import (
 	"strings"
 	"sync"
 
-	"dannyzolp.com/m/v2/helpers"
+	"github.com/DannyZolp/dns/helpers"
 )
 
-func handleConnection(conn net.Conn, records map[string][]byte, slds *list.List) {
+func handleConnection(conn net.Conn, records map[string][]byte) {
 	reader := bufio.NewReader(conn)
 
 	requestLength := make([]byte, 2)
@@ -55,30 +54,18 @@ func handleConnection(conn net.Conn, records map[string][]byte, slds *list.List)
 		endOfDomain++
 	}
 
-	if request[endOfDomain+1 : endOfDomain+2][0] == 0x06 {
-		// this is an SOA request
-		domain := string(request[12:endOfDomain])
-
-		for e := slds.Front(); e != nil; e = e.Next() {
-			if strings.Contains(domain, e.Value.(string)) {
-				res := slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], helpers.GenerateSOAResponse(e.Value.(string), getSerial(), 3600, 1800, 60, 3600))
-				responseLength := make([]byte, 2)
-				binary.BigEndian.PutUint16(responseLength, uint16(len(res)))
-				conn.Write(slices.Concat(responseLength, res))
-				conn.Close()
-
-				return
-			}
-		}
-
-	}
-
 	record := records[string(request[12:endOfDomain+2])]
 
 	var response []byte
 	responseLength := make([]byte, 2)
 
-	if record != nil {
+	if request[endOfDomain+1 : endOfDomain+2][0] == 0x06 {
+		// this is an SOA request
+		fqdnParts := helpers.ConvertNameFromBytes(request[12:endOfDomain])
+		fqdn := strings.Join([]string{fqdnParts[len(fqdnParts)-1], fqdnParts[len(fqdnParts)-2]}, ".")
+
+		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], records[fqdn])
+	} else if record != nil {
 		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], record)
 	} else {
 		response = slices.Concat(request[0:2], HeaderNotFound, request[12:endOfDomain+4])
@@ -91,7 +78,7 @@ func handleConnection(conn net.Conn, records map[string][]byte, slds *list.List)
 	conn.Close()
 }
 
-func tcp(records map[string][]byte, slds *list.List, wg *sync.WaitGroup) {
+func Tcp(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	port, err := strconv.Atoi(os.Getenv("DNS_SERVER_PORT"))
@@ -121,6 +108,6 @@ func tcp(records map[string][]byte, slds *list.List, wg *sync.WaitGroup) {
 			continue
 		}
 
-		go handleConnection(conn, records, slds)
+		go handleConnection(conn, records)
 	}
 }

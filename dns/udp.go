@@ -1,7 +1,6 @@
-package main
+package dns
 
 import (
-	"container/list"
 	"fmt"
 	"net"
 	"os"
@@ -10,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"dannyzolp.com/m/v2/helpers"
+	"github.com/DannyZolp/dns/helpers"
 )
 
-func udp(records map[string][]byte, slds *list.List, wg *sync.WaitGroup) {
+func Udp(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	packet := make([]byte, 512) // in udp DNS, the max length of a packet is 512 bytes [RFC1035]
@@ -54,29 +53,16 @@ func udp(records map[string][]byte, slds *list.List, wg *sync.WaitGroup) {
 			endOfDomain++
 		}
 
-		if packet[endOfDomain+1 : endOfDomain+2][0] == 0x06 {
-			// this is an SOA request
-			domain := string(packet[12:endOfDomain])
-			wroteResponse := false
-
-			for e := slds.Front(); e != nil; e = e.Next() {
-				if strings.Contains(domain, e.Value.(string)) {
-					ser.WriteToUDP(slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], helpers.GenerateSOAResponse(e.Value.(string), getSerial(), 3600, 1800, 60, 3600)), remoteAddr)
-					wroteResponse = true
-					break
-				}
-			}
-
-			if wroteResponse {
-				continue
-			}
-
-		}
-
 		record := records[string(packet[12:endOfDomain+2])]
 		var response []byte
 
-		if record != nil {
+		if packet[endOfDomain+1 : endOfDomain+2][0] == 0x06 {
+			// this is an SOA request
+			fqdnParts := helpers.ConvertNameFromBytes(packet[12:endOfDomain])
+			fqdn := strings.Join([]string{fqdnParts[len(fqdnParts)-2], fqdnParts[len(fqdnParts)-1]}, ".")
+
+			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], records[fqdn])
+		} else if record != nil {
 			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], record)
 		} else {
 			response = slices.Concat(packet[0:2], HeaderNotFound, packet[12:endOfDomain+4])
