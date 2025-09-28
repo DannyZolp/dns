@@ -171,12 +171,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputFields = make(map[string]string)
 			return m, nil
 
-		case "up", "k":
+		case "up":
 			if m.cursor > 0 {
 				m.cursor--
 			}
 
-		case "down", "j":
+		case "down":
 			switch m.state {
 			case zoneSelection:
 				if m.cursor < len(m.zones) { // Don't go past the "Add Zone" option
