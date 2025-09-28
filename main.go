@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -23,13 +22,13 @@ func main() {
 		management.GenerateRecordMap(records)
 
 		var wg sync.WaitGroup
-		wg.Add(2)
+		wg.Add(3)
 
-		fmt.Println("Starting udp handler...")
 		go dns.Udp(records, &wg)
 
-		fmt.Println("Starting tcp handler...")
 		go dns.Tcp(records, &wg)
+
+		go management.UpdateRecords(records, &wg)
 
 		wg.Wait()
 	} else {
