@@ -4,12 +4,7 @@ import "gorm.io/gorm"
 
 type SecondLevelDomain struct {
 	gorm.Model
-	Name   string `json:"name"`
-	As     []A
-	AAAAs  []AAAA
-	CNAMEs []CNAME
-	MXs    []MX
-	TXTs   []TXT
+	Name string `gorm:"unique"`
 }
 
 type A struct {
