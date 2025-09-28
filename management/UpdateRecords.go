@@ -2,6 +2,7 @@ package management
 
 import (
 	"bufio"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
@@ -26,6 +27,7 @@ func databaseBroadcast() {
 		}
 
 		db, err := os.ReadFile("dns.db")
+		enc := base64.StdEncoding.EncodeToString(db) + "\n"
 
 		if err != nil {
 			fmt.Println(err)
@@ -33,7 +35,7 @@ func databaseBroadcast() {
 			continue
 		}
 
-		c.Write(db)
+		c.Write([]byte(enc))
 		c.Close()
 	}
 }
@@ -57,10 +59,14 @@ func UpdateRecords(records map[string][]byte, wg *sync.WaitGroup) {
 			}
 			reader := bufio.NewReader(c)
 
-			data := make([]byte, reader.Size())
-			reader.Read(data)
+			data, err := reader.ReadString('\n')
+			if err != nil {
+				fmt.Println(err)
+			}
 
-			os.WriteFile("dns.db", data, 0666)
+			dec, _ := base64.StdEncoding.DecodeString(data)
+
+			os.WriteFile("dns.db", dec, 0666)
 
 			GenerateRecordMap(records)
 
