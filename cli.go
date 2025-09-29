@@ -548,6 +548,8 @@ func (m *model) setupSOAEditForm() {
 }
 
 func (m *model) createRecord() error {
+	var err error
+
 	switch m.recordType {
 	case aRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -557,7 +559,7 @@ func (m *model) createRecord() error {
 			TTL:    uint32(ttl),
 			ZoneID: m.zoneID,
 		}
-		return m.db.Create(&record).Error
+		err = m.db.Create(&record).Error
 
 	case aaaaRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -567,7 +569,7 @@ func (m *model) createRecord() error {
 			TTL:    uint32(ttl),
 			ZoneID: m.zoneID,
 		}
-		return m.db.Create(&record).Error
+		err = m.db.Create(&record).Error
 
 	case cnameRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -577,7 +579,7 @@ func (m *model) createRecord() error {
 			TTL:    uint32(ttl),
 			ZoneID: m.zoneID,
 		}
-		return m.db.Create(&record).Error
+		err = m.db.Create(&record).Error
 
 	case mxRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -589,7 +591,7 @@ func (m *model) createRecord() error {
 			TTL:      uint32(ttl),
 			ZoneID:   m.zoneID,
 		}
-		return m.db.Create(&record).Error
+		err = m.db.Create(&record).Error
 
 	case txtRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -599,7 +601,7 @@ func (m *model) createRecord() error {
 			TTL:     uint32(ttl),
 			ZoneID:  m.zoneID,
 		}
-		return m.db.Create(&record).Error
+		err = m.db.Create(&record).Error
 
 	case soaRecord:
 		// Check if SOA already exists for this zone
@@ -623,14 +625,20 @@ func (m *model) createRecord() error {
 			Expire:            uint32(expire),
 			ZoneID:            m.zoneID,
 		}
-		return m.db.Create(&record).Error
+		err = m.db.Create(&record).Error
 	}
 
-	return nil
+	// If the record was created successfully and it's not a SOA record, increment the SOA serial
+	if err == nil && m.recordType != soaRecord {
+		m.incrementSOASerial()
+	}
+
+	return err
 }
 
 func (m *model) updateRecord() error {
 	id, _ := strconv.ParseUint(m.inputFields["ID"], 10, 32)
+	var err error
 
 	switch m.recordType {
 	case aRecord:
@@ -640,7 +648,7 @@ func (m *model) updateRecord() error {
 			IP:   m.inputFields["IP"],
 			TTL:  uint32(ttl),
 		}
-		return m.db.Model(&management.A{}).Where("id = ?", id).Updates(updates).Error
+		err = m.db.Model(&management.A{}).Where("id = ?", id).Updates(updates).Error
 
 	case aaaaRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -649,7 +657,7 @@ func (m *model) updateRecord() error {
 			IP:   m.inputFields["IP"],
 			TTL:  uint32(ttl),
 		}
-		return m.db.Model(&management.AAAA{}).Where("id = ?", id).Updates(updates).Error
+		err = m.db.Model(&management.AAAA{}).Where("id = ?", id).Updates(updates).Error
 
 	case cnameRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -658,7 +666,7 @@ func (m *model) updateRecord() error {
 			Target: m.inputFields["Target"],
 			TTL:    uint32(ttl),
 		}
-		return m.db.Model(&management.CNAME{}).Where("id = ?", id).Updates(updates).Error
+		err = m.db.Model(&management.CNAME{}).Where("id = ?", id).Updates(updates).Error
 
 	case mxRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -669,7 +677,7 @@ func (m *model) updateRecord() error {
 			Priority: uint16(priority),
 			TTL:      uint32(ttl),
 		}
-		return m.db.Model(&management.MX{}).Where("id = ?", id).Updates(updates).Error
+		err = m.db.Model(&management.MX{}).Where("id = ?", id).Updates(updates).Error
 
 	case txtRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -678,7 +686,7 @@ func (m *model) updateRecord() error {
 			Content: m.inputFields["Content"],
 			TTL:     uint32(ttl),
 		}
-		return m.db.Model(&management.TXT{}).Where("id = ?", id).Updates(updates).Error
+		err = m.db.Model(&management.TXT{}).Where("id = ?", id).Updates(updates).Error
 
 	case soaRecord:
 		ttl, _ := strconv.ParseUint(m.inputFields["TTL"], 10, 32)
@@ -694,10 +702,15 @@ func (m *model) updateRecord() error {
 			Retry:             uint32(retry),
 			Expire:            uint32(expire),
 		}
-		return m.db.Model(&management.SOA{}).Where("id = ?", id).Updates(updates).Error
+		err = m.db.Model(&management.SOA{}).Where("id = ?", id).Updates(updates).Error
 	}
 
-	return nil
+	// If the record was updated successfully and it's not a SOA record, increment the SOA serial
+	if err == nil && m.recordType != soaRecord {
+		m.incrementSOASerial()
+	}
+
+	return err
 }
 
 func (m *model) deleteSelectedRecord() {
@@ -717,6 +730,22 @@ func (m *model) deleteSelectedRecord() {
 		m.db.Delete(&management.TXT{}, id)
 	case "SOA":
 		m.db.Delete(&management.SOA{}, id)
+	}
+
+	// If a non-SOA record was deleted, increment the SOA serial
+	if record.Type != "SOA" {
+		m.incrementSOASerial()
+	}
+}
+
+func (m *model) incrementSOASerial() {
+	// Find and increment the SOA serial number for the current zone
+	var soa management.SOA
+	if err := m.db.Where("zone_id = ?", m.zoneID).First(&soa).Error; err == nil {
+		// Increment the serial number
+		soa.SerialNumber++
+		// Update the SOA record in the database
+		m.db.Save(&soa)
 	}
 }
 
