@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/DannyZolp/dns/dns"
 	"github.com/DannyZolp/dns/management"
+	"github.com/DannyZolp/dns/servers"
 	"github.com/joho/godotenv"
 )
 
@@ -24,9 +24,9 @@ func main() {
 		var wg sync.WaitGroup
 		wg.Add(3)
 
-		go dns.Udp(records, &wg)
+		go servers.UdpServer(records, &wg)
 
-		go dns.Tcp(records, &wg)
+		go servers.TcpServer(records, &wg)
 
 		go management.UpdateRecords(records, &wg)
 

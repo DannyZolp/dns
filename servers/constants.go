@@ -1,10 +1,4 @@
-package dns
-
-import (
-	"encoding/binary"
-	"os"
-	"strconv"
-)
+package servers
 
 var HeaderFound = []byte{
 	// QR/OPCODE Section
@@ -38,12 +32,4 @@ var HeaderNotFound = []byte{
 	0x00, 0x00,
 	// ARCOUNT, no additional records either.
 	0x00, 0x00,
-}
-
-func getSerial() []byte {
-	serialBytes, _ := os.ReadFile(".serial")
-	serialInt, _ := strconv.Atoi(string(serialBytes))
-	serial := make([]byte, 4)
-	binary.BigEndian.PutUint32(serial, uint32(serialInt))
-	return serial
 }

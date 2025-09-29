@@ -1,4 +1,4 @@
-package dns
+package servers
 
 import (
 	"bufio"
@@ -78,7 +78,7 @@ func handleConnection(conn net.Conn, records map[string][]byte) {
 	conn.Close()
 }
 
-func Tcp(records map[string][]byte, wg *sync.WaitGroup) {
+func TcpServer(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	port, err := strconv.Atoi(os.Getenv("DNS_SERVER_PORT"))

@@ -1,4 +1,4 @@
-package dns
+package servers
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"github.com/DannyZolp/dns/helpers"
 )
 
-func Udp(records map[string][]byte, wg *sync.WaitGroup) {
+func UdpServer(records map[string][]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	packet := make([]byte, 512) // in udp DNS, the max length of a packet is 512 bytes [RFC1035]

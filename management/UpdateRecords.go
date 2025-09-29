@@ -56,12 +56,16 @@ func UpdateRecords(records map[string][]byte, wg *sync.WaitGroup) {
 			c, err := net.Dial("tcp", net.JoinHostPort(os.Getenv("MANAGEMENT_SERVER_IP"), os.Getenv("MANAGEMENT_SERVER_PORT")))
 			if err != nil {
 				fmt.Println(err)
+				time.Sleep(time.Second * 60)
+				continue
 			}
 			reader := bufio.NewReader(c)
 
 			data, err := reader.ReadString('\n')
 			if err != nil {
 				fmt.Println(err)
+				time.Sleep(time.Second * 60)
+				continue
 			}
 
 			dec, _ := base64.StdEncoding.DecodeString(data)
