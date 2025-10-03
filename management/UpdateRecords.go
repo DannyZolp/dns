@@ -46,6 +46,11 @@ func UpdateRecords(records map[string][]byte, wg *sync.WaitGroup) {
 		fmt.Println("Broadcasting database...")
 		go databaseBroadcast()
 
+		if os.Getenv("DYNDNS_ACTIVE") == "true" {
+			fmt.Println("Starting DynDNS Server...")
+			go DynDnsService()
+		}
+
 		for {
 			GenerateRecordMap(records)
 
