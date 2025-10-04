@@ -57,6 +57,6 @@ func DynDnsService() {
 
 		w.Write([]byte(response))
 	})
-	http.ListenAndServe(fmt.Sprintf("%s:80", os.Getenv("DNS_SERVER_IP")), r)
-	http.ListenAndServeTLS(fmt.Sprintf("%s:443", os.Getenv("DNS_SERVER_IP")), os.Getenv("DYNDNS_CERT"), os.Getenv("DYNDNS_KEY"), r)
+	go http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("DYNDNS_HTTP_PORT")), r)
+	http.ListenAndServeTLS(fmt.Sprintf(":%s", os.Getenv("DYNDNS_HTTPS_PORT")), os.Getenv("DYNDNS_CERT"), os.Getenv("DYNDNS_KEY"), r)
 }

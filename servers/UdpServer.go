@@ -24,7 +24,6 @@ func UdpServer(records map[string][]byte, wg *sync.WaitGroup) {
 
 	addr := net.UDPAddr{
 		Port: port,
-		IP:   net.ParseIP(os.Getenv("DNS_SERVER_IP")),
 	}
 
 	ser, err := net.ListenUDP("udp", &addr)

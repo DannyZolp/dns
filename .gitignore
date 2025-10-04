@@ -2,3 +2,4 @@
 *.db
 .serial
 *.pem
+*.exe
