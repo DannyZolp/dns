@@ -87,6 +87,7 @@ func TcpServer(records map[string][]byte, wg *sync.WaitGroup) {
 	}
 
 	addr := net.TCPAddr{
+		IP:   net.ParseIP(os.Getenv("DNS_SERVER_IP")),
 		Port: port,
 	}
 
