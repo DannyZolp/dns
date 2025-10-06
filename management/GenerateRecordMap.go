@@ -24,6 +24,7 @@ func GenerateRecordMap(hashMap map[string][]byte) {
 	mx, _ := gorm.G[MX](db).Find(ctx)
 	txt, _ := gorm.G[TXT](db).Find(ctx)
 	soa, _ := gorm.G[SOA](db).Find(ctx)
+	ns, _ := gorm.G[NS](db).Find(ctx)
 
 	// create CNAME records
 	for _, r := range cname {
@@ -52,5 +53,10 @@ func GenerateRecordMap(hashMap map[string][]byte) {
 	// create SOAs
 	for _, r := range soa {
 		helpers.CreateSOARecord(hashMap, r.SecondLevelDomain, r.SerialNumber, r.TTL, r.Refresh, r.Retry, r.Expire)
+	}
+
+	// create NS records
+	for _, r := range ns {
+		helpers.CreateNSRecord(hashMap, r.SecondLevelDomain, r.Nameservers, r.TTL)
 	}
 }

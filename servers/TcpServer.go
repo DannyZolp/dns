@@ -54,17 +54,22 @@ func handleConnection(conn net.Conn, records map[string][]byte) {
 		endOfDomain++
 	}
 
+	qType := request[endOfDomain+1 : endOfDomain+2]
+
 	record := records[string(request[12:endOfDomain+2])]
 
 	var response []byte
 	responseLength := make([]byte, 2)
 
-	if request[endOfDomain+1 : endOfDomain+2][0] == 0x06 {
+	if qType[0] == 0x06 {
 		// this is an SOA request
 		fqdnParts := helpers.ConvertNameFromBytes(request[12:endOfDomain])
 		fqdn := strings.Join([]string{fqdnParts[len(fqdnParts)-1], fqdnParts[len(fqdnParts)-2]}, ".")
 
 		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], records[fqdn])
+	} else if qType[0] == 0x02 {
+		// this is an NS request
+		response = slices.Concat(request[0:2], record[0:9], request[12:endOfDomain+4], record[10:])
 	} else if record != nil {
 		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], record)
 	} else {

@@ -73,6 +73,7 @@ const (
 	mxRecord
 	txtRecord
 	soaRecord
+	nsRecord
 )
 
 type model struct {
@@ -108,7 +109,7 @@ func initialModel() model {
 	}
 
 	// Auto-migrate the schema with the new Zone-based models
-	db.AutoMigrate(&management.Zone{}, &management.SOA{}, &management.A{}, &management.AAAA{}, &management.CNAME{}, &management.MX{}, &management.TXT{})
+	db.AutoMigrate(&management.Zone{}, &management.SOA{}, &management.NS{}, &management.A{}, &management.AAAA{}, &management.CNAME{}, &management.MX{}, &management.TXT{})
 
 	m := model{
 		state:       zoneSelection,
@@ -145,8 +146,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = recordTypeSelection
 				m.cursor = int(m.recordType)
 			case recordInput:
-				if m.recordType == soaRecord {
-					// For SOA records, go back to record type selection since there's no viewRecords
+				if m.recordType == soaRecord || m.recordType == nsRecord {
+					// For SOA and NS records, go back to record type selection since there's no viewRecords
 					m.state = recordTypeSelection
 					m.cursor = int(m.recordType)
 				} else {
@@ -183,7 +184,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor++
 				}
 			case recordTypeSelection:
-				if m.cursor < 5 {
+				if m.cursor < 6 {
 					m.cursor++
 				}
 			case viewRecords:
@@ -208,8 +209,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "d":
 			if m.state == recordInput || m.state == addZone || m.state == editZone {
 				return m.handleInput(msg.String())
-			} else if m.state == viewRecords && len(m.getDisplayRecords()) > 0 && m.recordType != soaRecord {
-				// Don't allow deleting SOA records
+			} else if m.state == viewRecords && len(m.getDisplayRecords()) > 0 && m.recordType != soaRecord && m.recordType != nsRecord {
+				// Don't allow deleting SOA or NS records
 				m.selectedRecord = m.getDisplayRecords()[m.cursor]
 				m.state = confirmDelete
 				m.confirmAction = "delete"
@@ -239,13 +240,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "a":
 			if m.state == recordInput || m.state == addZone || m.state == editZone {
 				return m.handleInput(msg.String())
-			} else if m.state == viewRecords && m.recordType != soaRecord {
-				// Don't allow adding new SOA records
+			} else if m.state == viewRecords && m.recordType != soaRecord && m.recordType != nsRecord {
+				// Don't allow adding new SOA or NS records
 				m.setupAddForm()
 				m.state = recordInput
 				return m, nil
-			} else if m.state == viewRecords && m.recordType == soaRecord {
-				// For SOA records, redirect to edit the existing one
+			} else if m.state == viewRecords && (m.recordType == soaRecord || m.recordType == nsRecord) {
+				// For SOA and NS records, redirect to edit the existing one
 				m.setupAddForm() // This will automatically redirect to edit mode
 				m.state = recordInput
 				return m, nil
@@ -285,6 +286,10 @@ func (m model) handleEnter() (tea.Model, tea.Cmd) {
 		if m.recordType == soaRecord {
 			// For SOA records, bypass the list view and go directly to edit
 			m.setupSOAEditForm()
+			m.state = recordInput
+		} else if m.recordType == nsRecord {
+			// For NS records, bypass the list view and go directly to edit
+			m.setupNSEditForm()
 			m.state = recordInput
 		} else {
 			m.loadRecords()
@@ -427,6 +432,11 @@ func (m *model) setupAddForm() {
 		// Use the dedicated SOA edit form setup
 		m.setupSOAEditForm()
 		return
+	case nsRecord:
+		// For NS records, we don't allow adding new ones - only editing existing
+		// Use the dedicated NS edit form setup
+		m.setupNSEditForm()
+		return
 	}
 
 	// Set default values
@@ -469,6 +479,8 @@ func (m *model) setupEditForm() {
 		m.fieldNames = []string{"ID", "Name", "Content", "TTL"}
 	case soaRecord:
 		m.fieldNames = []string{"ID", "SecondLevelDomain", "SerialNumber", "TTL", "Refresh", "Retry", "Expire"}
+	case nsRecord:
+		m.fieldNames = []string{"ID", "SecondLevelDomain", "Nameservers"}
 	}
 
 	m.currentField = m.fieldNames[1] // Skip ID field for editing
@@ -508,6 +520,19 @@ func (m *model) setupEditForm() {
 			m.inputFields["Retry"] = fmt.Sprintf("%d", soa.Retry)
 			m.inputFields["Expire"] = fmt.Sprintf("%d", soa.Expire)
 		}
+	case nsRecord:
+		// Load the actual NS record to get all fields
+		id, _ := strconv.ParseUint(record.ID, 10, 32)
+		var ns management.NS
+		if err := m.db.First(&ns, id).Error; err == nil {
+			m.inputFields["SecondLevelDomain"] = ns.SecondLevelDomain
+			// Convert nameservers slice to comma-separated string
+			nameserversInput := ""
+			if len(ns.Nameservers) > 0 {
+				nameserversInput = strings.Join(ns.Nameservers, ", ")
+			}
+			m.inputFields["Nameservers"] = nameserversInput
+		}
 	}
 }
 
@@ -545,6 +570,47 @@ func (m *model) setupSOAEditForm() {
 	m.inputFields["Refresh"] = fmt.Sprintf("%d", soa.Refresh)
 	m.inputFields["Retry"] = fmt.Sprintf("%d", soa.Retry)
 	m.inputFields["Expire"] = fmt.Sprintf("%d", soa.Expire)
+}
+
+func (m *model) setupNSEditForm() {
+	m.inputFields = make(map[string]string)
+	m.fieldIndex = 0
+	m.error = ""
+
+	// Load the NS record directly from database for this zone
+	var ns management.NS
+	if err := m.db.Where("zone_id = ?", m.zoneID).First(&ns).Error; err != nil {
+		m.error = "No NS record found for this zone"
+		return
+	}
+
+	// Set up the form fields for NS editing
+	m.fieldNames = []string{"ID", "SecondLevelDomain", "Nameservers"}
+	m.currentField = m.fieldNames[1] // Skip ID field for editing
+
+	// Create a selectedRecord for consistency with other record types
+	nameserversStr := ""
+	if len(ns.Nameservers) > 0 {
+		nameserversStr = fmt.Sprintf("%v", ns.Nameservers)
+	}
+
+	m.selectedRecord = recordDisplay{
+		ID:    fmt.Sprintf("%d", ns.ID),
+		Type:  "NS",
+		Name:  ns.SecondLevelDomain,
+		Value: nameserversStr,
+		TTL:   "N/A", // NS records don't typically have TTL in our model
+	}
+
+	// Pre-populate with existing NS values
+	m.inputFields["ID"] = fmt.Sprintf("%d", ns.ID)
+	m.inputFields["SecondLevelDomain"] = ns.SecondLevelDomain
+	// Convert nameservers slice to comma-separated string for editing
+	nameserversInput := ""
+	if len(ns.Nameservers) > 0 {
+		nameserversInput = strings.Join(ns.Nameservers, ", ")
+	}
+	m.inputFields["Nameservers"] = nameserversInput
 }
 
 func (m *model) createRecord() error {
@@ -626,10 +692,39 @@ func (m *model) createRecord() error {
 			ZoneID:            m.zoneID,
 		}
 		err = m.db.Create(&record).Error
+
+	case nsRecord:
+		// Check if NS already exists for this zone
+		var count int64
+		m.db.Model(&management.NS{}).Where("zone_id = ?", m.zoneID).Count(&count)
+		if count > 0 {
+			return fmt.Errorf("NS record already exists for this zone. Use edit to modify it")
+		}
+
+		// Parse nameservers from comma-separated string
+		nameserversStr := strings.TrimSpace(m.inputFields["Nameservers"])
+		var nameservers []string
+		if nameserversStr != "" {
+			// Split by comma and trim spaces
+			parts := strings.Split(nameserversStr, ",")
+			for _, part := range parts {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					nameservers = append(nameservers, trimmed)
+				}
+			}
+		}
+
+		record := management.NS{
+			SecondLevelDomain: m.inputFields["SecondLevelDomain"],
+			Nameservers:       nameservers,
+			ZoneID:            m.zoneID,
+		}
+		err = m.db.Create(&record).Error
 	}
 
-	// If the record was created successfully and it's not a SOA record, increment the SOA serial
-	if err == nil && m.recordType != soaRecord {
+	// If the record was created successfully and it's not a SOA or NS record, increment the SOA serial
+	if err == nil && m.recordType != soaRecord && m.recordType != nsRecord {
 		m.incrementSOASerial()
 	}
 
@@ -703,10 +798,31 @@ func (m *model) updateRecord() error {
 			Expire:            uint32(expire),
 		}
 		err = m.db.Model(&management.SOA{}).Where("id = ?", id).Updates(updates).Error
+
+	case nsRecord:
+		// Parse nameservers from comma-separated string
+		nameserversStr := strings.TrimSpace(m.inputFields["Nameservers"])
+		var nameservers []string
+		if nameserversStr != "" {
+			// Split by comma and trim spaces
+			parts := strings.Split(nameserversStr, ",")
+			for _, part := range parts {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					nameservers = append(nameservers, trimmed)
+				}
+			}
+		}
+
+		updates := management.NS{
+			SecondLevelDomain: m.inputFields["SecondLevelDomain"],
+			Nameservers:       nameservers,
+		}
+		err = m.db.Model(&management.NS{}).Where("id = ?", id).Updates(updates).Error
 	}
 
-	// If the record was updated successfully and it's not a SOA record, increment the SOA serial
-	if err == nil && m.recordType != soaRecord {
+	// If the record was updated successfully and it's not a SOA or NS record, increment the SOA serial
+	if err == nil && m.recordType != soaRecord && m.recordType != nsRecord {
 		m.incrementSOASerial()
 	}
 
@@ -730,10 +846,12 @@ func (m *model) deleteSelectedRecord() {
 		m.db.Delete(&management.TXT{}, id)
 	case "SOA":
 		m.db.Delete(&management.SOA{}, id)
+	case "NS":
+		m.db.Delete(&management.NS{}, id)
 	}
 
-	// If a non-SOA record was deleted, increment the SOA serial
-	if record.Type != "SOA" {
+	// If a non-SOA/NS record was deleted, increment the SOA serial
+	if record.Type != "SOA" && record.Type != "NS" {
 		m.incrementSOASerial()
 	}
 }
@@ -773,6 +891,10 @@ func (m *model) loadRecords() {
 		m.records = records
 	case soaRecord:
 		var records []management.SOA
+		m.db.Where("zone_id = ?", m.zoneID).Find(&records)
+		m.records = records
+	case nsRecord:
+		var records []management.NS
 		m.db.Where("zone_id = ?", m.zoneID).Find(&records)
 		m.records = records
 	}
@@ -852,6 +974,22 @@ func (m *model) getDisplayRecords() []recordDisplay {
 					Value: fmt.Sprintf("Serial: %d, Refresh: %d, Retry: %d, Expire: %d",
 						record.SerialNumber, record.Refresh, record.Retry, record.Expire),
 					TTL: fmt.Sprintf("%d", record.TTL),
+				})
+			}
+		}
+	case nsRecord:
+		if records, ok := m.records.([]management.NS); ok {
+			for _, record := range records {
+				nameserversStr := ""
+				if len(record.Nameservers) > 0 {
+					nameserversStr = strings.Join(record.Nameservers, ", ")
+				}
+				displays = append(displays, recordDisplay{
+					ID:    fmt.Sprintf("%d", record.ID),
+					Type:  "NS",
+					Name:  record.SecondLevelDomain,
+					Value: nameserversStr,
+					TTL:   "N/A",
 				})
 			}
 		}
@@ -936,6 +1074,17 @@ func (m *model) createZone() error {
 		ZoneID:            int(zone.ID),
 	}
 
+	// Create a default NS record for the new zone
+	ns := management.NS{
+		SecondLevelDomain: m.inputFields["Name"],
+		Nameservers:       []string{}, // Empty nameservers initially
+		ZoneID:            int(zone.ID),
+	}
+
+	if err := m.db.Create(&ns).Error; err != nil {
+		return err
+	}
+
 	return m.db.Create(&soa).Error
 }
 
@@ -956,6 +1105,7 @@ func (m *model) deleteSelectedZone() {
 		m.db.Where("zone_id = ?", m.selectedZone.ID).Delete(&management.MX{})
 		m.db.Where("zone_id = ?", m.selectedZone.ID).Delete(&management.TXT{})
 		m.db.Where("zone_id = ?", m.selectedZone.ID).Delete(&management.SOA{})
+		m.db.Where("zone_id = ?", m.selectedZone.ID).Delete(&management.NS{})
 
 		// Delete the zone itself
 		m.db.Delete(m.selectedZone)
@@ -1016,7 +1166,7 @@ func (m model) renderZoneSelection() string {
 func (m model) renderRecordTypeSelection() string {
 	s := titleStyle.Render(fmt.Sprintf("Zone: %s - Select Record Type", m.selectedZone.Name)) + "\n\n"
 
-	types := []string{"A Record", "AAAA Record", "CNAME Record", "MX Record", "TXT Record", "SOA Record"}
+	types := []string{"A Record", "AAAA Record", "CNAME Record", "MX Record", "TXT Record", "SOA Record", "NS Record"}
 
 	for i, recordType := range types {
 		cursor := " "
@@ -1028,12 +1178,12 @@ func (m model) renderRecordTypeSelection() string {
 		}
 	}
 
-	s += "\n" + normalStyle.Render("Use ↑/↓ to navigate, Enter to select (SOA goes directly to edit), Esc: back to zones")
+	s += "\n" + normalStyle.Render("Use ↑/↓ to navigate, Enter to select (SOA and NS go directly to edit), Esc: back to zones")
 	return s
 }
 
 func (m model) renderViewRecords() string {
-	recordTypeName := []string{"A", "AAAA", "CNAME", "MX", "TXT", "SOA"}
+	recordTypeName := []string{"A", "AAAA", "CNAME", "MX", "TXT", "SOA", "NS"}
 	s := titleStyle.Render(fmt.Sprintf("Zone: %s - %s Records", m.selectedZone.Name, recordTypeName[m.recordType])) + "\n\n"
 
 	records := m.getDisplayRecords()
@@ -1053,9 +1203,11 @@ func (m model) renderViewRecords() string {
 		}
 	}
 
-	// Different instructions for SOA vs other records
+	// Different instructions for SOA/NS vs other records
 	if m.recordType == soaRecord {
 		s += "\n" + normalStyle.Render("↑/↓: navigate, Enter/e: edit SOA, Esc: back (SOA cannot be added/deleted)")
+	} else if m.recordType == nsRecord {
+		s += "\n" + normalStyle.Render("↑/↓: navigate, Enter/e: edit NS, Esc: back (NS cannot be added/deleted)")
 	} else {
 		s += "\n" + normalStyle.Render("↑/↓: navigate, Enter/e: edit, a: add, d: delete, Esc: back")
 	}
@@ -1116,7 +1268,7 @@ func (m model) renderRecordInput() string {
 		action = "Edit"
 	}
 
-	recordTypeName := []string{"A", "AAAA", "CNAME", "MX", "TXT", "SOA"}
+	recordTypeName := []string{"A", "AAAA", "CNAME", "MX", "TXT", "SOA", "NS"}
 	s := titleStyle.Render(fmt.Sprintf("%s %s Record", action, recordTypeName[m.recordType])) + "\n\n"
 
 	if m.error != "" {

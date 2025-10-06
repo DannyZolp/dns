@@ -6,6 +6,7 @@ type Zone struct {
 	gorm.Model
 	Name  string
 	SOA   SOA
+	NS    NS
 	A     []A
 	AAAA  []AAAA
 	CNAME []CNAME
@@ -21,6 +22,14 @@ type SOA struct {
 	Refresh           uint32
 	Retry             uint32
 	Expire            uint32
+	ZoneID            int
+}
+
+type NS struct {
+	gorm.Model
+	SecondLevelDomain string
+	Nameservers       []string `gorm:"serializer:json"`
+	TTL               uint32
 	ZoneID            int
 }
 
