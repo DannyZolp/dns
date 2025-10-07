@@ -2,12 +2,10 @@ package helpers
 
 import (
 	"encoding/binary"
-	"fmt"
 	"slices"
 )
 
 func CreateNSRecord(records map[string][]byte, fqdn string, nameservers []string, ttl uint32) {
-	fmt.Println(len(nameservers))
 	nameserverBytes := make([][]byte, len(nameservers))
 	nsBytesLength := make([][]byte, len(nameservers))
 
@@ -21,11 +19,7 @@ func CreateNSRecord(records map[string][]byte, fqdn string, nameservers []string
 	numOfNSBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(numOfNSBytes, numberOfNameservers)
 
-	fmt.Printf("%x\n", numOfNSBytes)
-
 	header := slices.Concat([]byte{0x80, 0x00, 0x00, 0x01}, numOfNSBytes, []byte{0x00, 0x00, 0x00, 0x00})
-
-	fmt.Printf("% x, %d\n", header, len(header))
 
 	name := ConvertNameToBytes(fqdn)
 	qType := []byte{0x00, 0x02}
@@ -45,8 +39,6 @@ func CreateNSRecord(records map[string][]byte, fqdn string, nameservers []string
 	for i, nsBytes := range nameserverBytes {
 		response = slices.Concat(response, name, qType, class, ttlBytes, nsBytesLength[i], nsBytes)
 	}
-
-	fmt.Printf("% x\n", response)
 
 	records[key] = response
 }

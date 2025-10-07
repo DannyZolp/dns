@@ -58,16 +58,15 @@ func UdpServer(records map[string][]byte, wg *sync.WaitGroup) {
 
 		qType := packet[endOfDomain : endOfDomain+2]
 
-		if qType[0] == 0x06 {
+		if qType[1] == 0x06 {
 			// this is an SOA request
 			fqdnParts := helpers.ConvertNameFromBytes(packet[12:endOfDomain])
 			fqdn := strings.Join([]string{fqdnParts[len(fqdnParts)-2], fqdnParts[len(fqdnParts)-1]}, ".")
 
 			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], records[fqdn])
-		} else if qType[0] == 0x02 {
+		} else if qType[1] == 0x02 {
 			// this is an NS request
-			response = slices.Concat(packet[0:2], record[0:9], packet[12:endOfDomain+4], record[10:])
-			fmt.Printf("% x", response)
+			response = slices.Concat(packet[0:2], record[0:10], packet[12:endOfDomain+4], record[10:])
 
 		} else if record != nil {
 			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], record)
