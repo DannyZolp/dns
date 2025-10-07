@@ -65,8 +65,12 @@ func UdpServer(records map[string][]byte, wg *sync.WaitGroup) {
 
 			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], records[fqdn])
 		} else if qType[1] == 0x02 {
-			// this is an NS request
-			response = slices.Concat(packet[0:2], record[0:10], packet[12:endOfDomain+4], record[10:])
+			if len(record) > 10 {
+				// this is an NS request
+				response = slices.Concat(packet[0:2], record[0:10], packet[12:endOfDomain+4], record[10:])
+			} else {
+				response = slices.Concat(packet[0:2], HeaderNotFound, packet[12:endOfDomain+4])
+			}
 
 		} else if record != nil {
 			response = slices.Concat(packet[0:2], HeaderFound, packet[12:endOfDomain+4], record)

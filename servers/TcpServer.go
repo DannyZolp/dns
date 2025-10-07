@@ -66,10 +66,18 @@ func handleConnection(conn net.Conn, records map[string][]byte) {
 		fqdnParts := helpers.ConvertNameFromBytes(request[12:endOfDomain])
 		fqdn := strings.Join([]string{fqdnParts[len(fqdnParts)-2], fqdnParts[len(fqdnParts)-1]}, ".")
 
-		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], records[fqdn])
+		if records[fqdn] != nil {
+			response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], records[fqdn])
+		} else {
+			response = slices.Concat(request[0:2], HeaderNotFound, request[12:endOfDomain+4])
+		}
 	} else if qType[1] == 0x02 {
-		// this is an NS request
-		response = slices.Concat(request[0:2], record[0:10], request[12:endOfDomain+4], record[10:])
+		if len(record) > 10 {
+			// this is an NS request
+			response = slices.Concat(request[0:2], record[0:10], request[12:endOfDomain+4], record[10:])
+		} else {
+			response = slices.Concat(request[0:2], HeaderNotFound, request[12:endOfDomain+4])
+		}
 	} else if record != nil {
 		response = slices.Concat(request[0:2], HeaderFound, request[12:endOfDomain+4], record)
 	} else {
