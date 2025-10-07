@@ -180,11 +180,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down":
 			switch m.state {
 			case zoneSelection:
-				if m.cursor < len(m.zones) { // Don't go past the "Add Zone" option
+				// Zones are at indices 0 to len(m.zones)-1, "Add Zone" option is at index len(m.zones)
+				if m.cursor < len(m.zones) {
 					m.cursor++
 				}
 			case recordTypeSelection:
-				if m.cursor < 6 {
+				if m.cursor < 6 { // 0-6 for 7 record types (A, AAAA, CNAME, MX, TXT, SOA, NS)
 					m.cursor++
 				}
 			case viewRecords:
@@ -214,6 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedRecord = m.getDisplayRecords()[m.cursor]
 				m.state = confirmDelete
 				m.confirmAction = "delete"
+				m.cursor = 0
 				return m, nil
 			} else if m.state == zoneSelection && len(m.zones) > 0 && m.cursor < len(m.zones) {
 				m.selectedZone = &m.zones[m.cursor]
