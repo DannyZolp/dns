@@ -54,7 +54,7 @@ func handleConnection(conn net.Conn, records map[string][]byte) {
 		endOfDomain++
 	}
 
-	qType := request[endOfDomain+1 : endOfDomain+2]
+	qType := request[endOfDomain : endOfDomain+2]
 
 	record := records[string(request[12:endOfDomain+2])]
 
