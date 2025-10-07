@@ -13,7 +13,7 @@ func ConvertBytesToLowercase(bytes []byte) []byte {
 			break // invalid length
 		}
 		for i <= length {
-			if bytes[i] <= 90 {
+			if bytes[i] <= 90 && bytes[i] >= 65 {
 				bytes[i] += 32
 			}
 			i++
