@@ -56,7 +56,7 @@ func handleConnection(conn net.Conn, records map[string][]byte) {
 
 	qType := request[endOfDomain : endOfDomain+2]
 
-	record := records[string(request[12:endOfDomain+2])]
+	record := records[string(helpers.ConvertBytesToLowercase(request[12:endOfDomain+2]))]
 
 	var response []byte
 	responseLength := make([]byte, 2)

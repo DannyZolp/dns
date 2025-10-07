@@ -53,7 +53,7 @@ func UdpServer(records map[string][]byte, wg *sync.WaitGroup) {
 			endOfDomain++
 		}
 
-		record := records[string(packet[12:endOfDomain+2])]
+		record := records[string(helpers.ConvertBytesToLowercase(packet[12:endOfDomain+2]))]
 		var response []byte
 
 		qType := packet[endOfDomain : endOfDomain+2]
